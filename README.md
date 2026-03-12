@@ -34,8 +34,6 @@ It implements a **Retrieval-Augmented Generation (RAG)** system with a local vec
 
 ## Project Structure
 
-## Project Structure
-
 ```text
 RAG-backend-project/
 ├── backend/                # Main backend code
@@ -51,31 +49,31 @@ RAG-backend-project/
 └── .env                    # Environment variables (ignored)
 ```
 
-## Quick Start
+# Quick Start
 
-# Clone repo
+## Clone repo
 
 git clone https://github.com/Nandhini987/Stellaria-Rag-Chatbot.git
 cd Stellaria-Rag-Chatbot
 
-# Setup virtual environment
+## Setup virtual environment
 
 python -m venv myenv
 myenv\Scripts\activate # Windows
 
 source myenv/bin/activate # macOS/Linux
 
-# Install dependencies
+## Install dependencies
 
 pip install -r requirements.txt
 
-# Run FastAPI app
+## Run FastAPI app
 
 uvicorn backend.app:app --reload
 
 Run unit tests:
 
-pytest tests/
+pytest tests
 
 # Notes
 
