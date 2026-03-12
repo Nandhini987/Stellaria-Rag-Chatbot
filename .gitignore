@@ -1,0 +1,7 @@
+.env
+stell_db/
+__pycache__/
+.pytest_cache/
+myenv/
+dev/
+*.csv
