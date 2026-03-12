@@ -34,25 +34,22 @@ It implements a **Retrieval-Augmented Generation (RAG)** system with a local vec
 
 ## Project Structure
 
+## Project Structure
+
+```text
 RAG-backend-project/
-│
-├─ backend/ # Main backend code
-│ ├─ app.py # FastAPI entry point
-│ └─ rag_backend.py
-│
-├─ tests/ # Unit tests
-│ └─ test_main.py
-│
-├─ dev/ # Temporary/debug scripts (ignored)
-│ └─ tempCodeRunnerFile.py
-│
-├─ stell_db/ # Local vector DB (ignored)
-├─ myenv/ # Virtual environment (ignored)
-├─ .gitignore
-├─ requirements.txt
-├─ README.md
-├─ .env # Environment variables (ignored)
-├─ stellchatbotver1(in).csv # Dataset (ignored)
+├── backend/                # Main backend code
+│   ├── app.py              # FastAPI entry point
+│   └── rag_backend.py      # RAG logic & LLM integration
+├── tests/                  # Unit tests
+│   └── test_main.py        # API endpoint testing
+├── dev/                    # Debug scripts (ignored)
+├── stell_db/               # Local vector database (ignored)
+├── .gitignore              # Files to exclude from Git
+├── requirements.txt        # Project dependencies
+├── README.md               # Project documentation
+└── .env                    # Environment variables (ignored)
+```
 
 ## Quick Start
 
