@@ -17,7 +17,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # =========================================================
 EMBEDDING_MODEL = "gemini-embedding-001"
 GENERATION_MODEL = "gemini-2.5-flash"
-CSV_FILE = "stellchatbotver1(in).csv"
+CSV_FILE = "stell_dataset.csv"
 DB_PATH = "./stell_db"
 COLLECTION_NAME = "club_collection_v1"
 
