@@ -3,4 +3,4 @@ uvicorn
 pandas
 python-dotenv
 chromadb
-google-genaigit 
+google-genai
