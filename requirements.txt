@@ -4,3 +4,4 @@ pandas
 python-dotenv
 chromadb
 google-genai
+requests

@@ -2,11 +2,11 @@ import os
 import warnings
 import pandas as pd
 from dotenv import load_dotenv
-
+import requests
+from io import StringIO
 import chromadb
 from chromadb.api.types import Documents, Embeddings, EmbeddingFunction
 from chromadb.config import Settings
-
 from google import genai
 from google.genai import types
 
@@ -57,20 +57,48 @@ collection = chroma_client.get_or_create_collection(
 )
 
 def sync_database():
-    """Reads CSV and performs an upsert to keep the vector store fresh."""
-    if not os.path.exists(CSV_FILE):
-        print(f"Warning: {CSV_FILE} not found.")
+    """Loads dataset from Google Drive and syncs ChromaDB."""
+
+    dataset_url = os.getenv("DATASET_URL")
+
+    if not dataset_url:
+        print("DATASET_URL not configured.")
         return
-        
-    df = pd.read_csv(CSV_FILE).fillna("")
-    df["combined_text"] = "Question: " + df["question"] + " Answer: " + df["answer"]
+
+    try:
+        response = requests.get(dataset_url)
+        response.raise_for_status()
+
+        df = pd.read_csv(StringIO(response.text)).fillna("")
+
+        print(f"Dataset loaded successfully: {len(df)} rows")
+
+    except Exception as e:
+        print(f"Failed to load dataset: {e}")
+        return
+
+    df["combined_text"] = (
+        "Question: " + df["question"].astype(str)
+        + " Answer: " + df["answer"].astype(str)
+    )
+
     df = df[df["combined_text"].str.strip() != ""]
 
-    documents = df["combined_text"].astype(str).tolist()
-    metadatas = [{"category": str(t)} for t in df.get("type", ["general"] * len(df)).tolist()]
+    documents = df["combined_text"].tolist()
+
+    metadatas = [
+        {"category": str(t)}
+        for t in df.get("type", ["general"] * len(df)).tolist()
+    ]
+
     ids = [str(i) for i in range(len(documents))]
 
-    collection.upsert(documents=documents, metadatas=metadatas, ids=ids)
+    collection.upsert(
+        documents=documents,
+        metadatas=metadatas,
+        ids=ids
+    )
+
     print(f"Database synced: {len(documents)} records processed.")
 
 def retrieve_context(question, top_k=3):
