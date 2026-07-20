@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from rag_backend import ask_stellaria, sync_database
 from contextlib import asynccontextmanager
@@ -14,6 +15,15 @@ app = FastAPI(
     description="RAG-powered chatbot backend for Stellaria Club",
     version="1.0",
     lifespan=lifespan
+)
+
+#CORS for frontend connection
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows requests from any frontend (React, Vue, HTML, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 class Query(BaseModel):
