@@ -6,7 +6,6 @@ import requests
 from io import StringIO
 import chromadb
 from chromadb.api.types import Documents, Embeddings, EmbeddingFunction
-from chromadb.config import Settings
 from google import genai
 from google.genai import types
 
@@ -17,7 +16,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 # =========================================================
 EMBEDDING_MODEL = "gemini-embedding-001"
 GENERATION_MODEL = "gemini-2.5-flash"
-CSV_FILE = "stell_dataset.csv"
 DB_PATH = "./stell_db"
 COLLECTION_NAME = "club_collection_v1"
 
@@ -29,13 +27,12 @@ if not API_KEY:
 
 gemini_client = genai.Client(
     api_key=API_KEY,
-    http_options=types.HttpOptions(api_version="v1beta")
+    #http_options=types.HttpOptions(api_version="v1")
 )
 
 # =========================================================
-# CLASSES & FUNCTIONS
+# EMBEDDING FUNCTION
 # =========================================================
-
 class GeminiEmbeddingFunction(EmbeddingFunction):
     def __init__(self, client):
         self.client = client
@@ -44,18 +41,31 @@ class GeminiEmbeddingFunction(EmbeddingFunction):
         response = self.client.models.embed_content(
             model=EMBEDDING_MODEL,
             contents=[str(x) for x in input],
-            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
+            config=types.EmbedContentConfig(
+                task_type="RETRIEVAL_DOCUMENT"
+            )
         )
-        return [e.values for e in response.embeddings]
+
+        # Ensure clean float list output
+        return [list(embedding.values) for embedding in response.embeddings]
+
 
 embedding_function = GeminiEmbeddingFunction(gemini_client)
 
+# =========================================================
+# CHROMA DB SETUP
+# =========================================================
 chroma_client = chromadb.PersistentClient(path=DB_PATH)
+
 collection = chroma_client.get_or_create_collection(
     name=COLLECTION_NAME,
-    embedding_function=embedding_function
+    embedding_function=embedding_function,
+    metadata={"hnsw:space": "cosine"}  # IMPORTANT FIX
 )
 
+# =========================================================
+# SYNC DATABASE
+# =========================================================
 def sync_database():
     """Loads dataset from Google Drive and syncs ChromaDB."""
 
@@ -70,16 +80,16 @@ def sync_database():
         response.raise_for_status()
 
         df = pd.read_csv(StringIO(response.text)).fillna("")
-
         print(f"Dataset loaded successfully: {len(df)} rows")
 
     except Exception as e:
         print(f"Failed to load dataset: {e}")
         return
 
+    # Combine text for embeddings
     df["combined_text"] = (
-        "Question: " + df["question"].astype(str)
-        + " Answer: " + df["answer"].astype(str)
+        "Question: " + df["question"].astype(str) +
+        " Answer: " + df["answer"].astype(str)
     )
 
     df = df[df["combined_text"].str.strip() != ""]
@@ -91,7 +101,7 @@ def sync_database():
         for t in df.get("type", ["general"] * len(df)).tolist()
     ]
 
-    ids = [str(i) for i in range(len(documents))]
+    ids = [f"doc_{i}" for i in range(len(documents))]
 
     collection.upsert(
         documents=documents,
@@ -101,31 +111,40 @@ def sync_database():
 
     print(f"Database synced: {len(documents)} records processed.")
 
+# =========================================================
+# RETRIEVAL
+# =========================================================
 def retrieve_context(question, top_k=3):
     query_resp = gemini_client.models.embed_content(
         model=EMBEDDING_MODEL,
         contents=[question],
-        config=types.EmbedContentConfig(task_type="RETRIEVAL_QUERY")
+        config=types.EmbedContentConfig(
+            task_type="RETRIEVAL_QUERY"
+        )
     )
-    query_vector = query_resp.embeddings[0].values
+
+    query_vector = list(query_resp.embeddings[0].values)
 
     results = collection.query(
-        query_embeddings=[query_vector], 
+        query_embeddings=[query_vector],
         n_results=top_k
     )
 
     docs = results.get("documents", [[]])[0]
     return "\n".join(docs) if docs else ""
 
+# =========================================================
+# GENERATION
+# =========================================================
 def generate_response(question, context):
     prompt = f"""
 You are the Stellaria Club Assistant.
+
 Instructions:
-- If the user greets you, greet them politely.
-- Use the provided context to answer questions.
-- Keep the answer concise (2-4 sentences).
-- If the context does not contain the answer, say:
-"I'm not sure about that. Please check with the Stellaria team."
+- Use ONLY the provided context to answer.
+- If context does not clearly contain the answer, say you are not sure.
+- Keep answers concise (2-4 sentences).
+- If user greets you, respond politely.
 
 Context:
 {context}
@@ -133,18 +152,27 @@ Context:
 User Question:
 {question}
 """
+
     response = gemini_client.models.generate_content(
         model=GENERATION_MODEL,
         contents=prompt
     )
+
     return response.text
 
+# =========================================================
+# MAIN RAG FUNCTION
+# =========================================================
 def ask_stellaria(question):
     try:
         context = retrieve_context(question)
-        if not context:
-            return "I'm sorry, I don't have information on that."
+
+        # safer check (but still allows weak context usage)
+        if context.strip() == "":
+            return "I'm not sure about that. Please check with the Stellaria team."
+
         return generate_response(question, context)
+
     except Exception as e:
         print(f"RAG Error: {e}")
         return "An error occurred while fetching the answer."
